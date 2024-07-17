@@ -33,7 +33,8 @@ function Create({ show, onClose, onAdd }) {
       { id: 'assistant-1', role: 'assistant', content: '한국어만 사용해' },
       { id: 'assistant-2', role: 'assistant', content: '절대로 부정적인 말을 하지마' },
       { id: 'assistant-3', role: 'assistant', content: '사실에 기반해서 답해' },
-      { id: 'assistant-4', role: 'assistant', content: '문장 짧고 간결하게 말해' },
+      { id: 'assistant-4', role: 'assistant', content: '반말사용해' },
+      { id: 'assistant-5', role: 'assistant', content: '문장 짧고 간결하게 말해' },
     ];
 
     const reader = new FileReader();

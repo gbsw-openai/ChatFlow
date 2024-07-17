@@ -30,7 +30,7 @@ function Login() {
             <div>
               <div className={styles.right_title}>챗플로우</div>
               <div className={styles.right_subtitle}>
-                내가 원하는 대화주제로 AI와 편하게 이야기 하자
+              스마트한 대화의 시작
               </div>
             </div>
           </div>

@@ -1,130 +1,111 @@
-import React, { useState, useEffect, useRef } from 'react';
-import OpenAI from 'openai';
-import { collection, addDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '../firebaseSetting';
-import styles from '../styles/Chat.module.css';
-import ProgressBar from 'react-bootstrap/ProgressBar';
+import React, { useState } from 'react';
+import styles from '../styles/Create.module.css';
 
-const openai = new OpenAI({
-  apiKey: process.env.REACT_APP_OPENAI_API_KEY,
-  dangerouslyAllowBrowser: true,
-});
+function Create({ show, onClose, onAdd }) {
+  const [name, setName] = useState('');
+  const [photoFile, setPhotoFile] = useState(null);
+  const [selectedAge, setSelectedAge] = useState('');
+  const [selectedGender, setSelectedGender] = useState('');
+  const [selectedInterest, setSelectedInterest] = useState('');
+  const [selectedPersonality, setSelectedPersonality] = useState('');
 
-function Chat({ activeCharacter }) {
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const messagesEndRef = useRef(null);
+  const ages = ["10대", "20대", "30대", "40대", "50대 이상"];
+  const genders = ["남성", "여성", "기타"];
+  const interests = ["여행", "음악", "영화", "독서", "스포츠"];
+  const personalities = ["친절한", "유머러스한", "내성적인", "외향적인", "논리적인"];
 
-  useEffect(() => {
-    if (!activeCharacter) return;
-
-    const q = query(
-      collection(db, `chats/${activeCharacter.name}/messages`),
-      orderBy('createdAt', 'asc')
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const messagesData = snapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setMessages([...activeCharacter.initialMessages, ...messagesData]);
-    });
-
-    scrollToBottom();
-
-    return () => unsubscribe();
-  }, [activeCharacter]);
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  };
-
-  const handleChange = (e) => {
-    setNewMessage(e.target.value);
-  };
-
-  const handleSubmit = async (e) => {
+  const handleSubmit = (e) => {
     e.preventDefault();
-    if (newMessage.trim() === "") return;
+    if (name.trim() === '' || !photoFile) return;
 
-    const userMessage = {
-      text: newMessage,
-      sender: "user",
-      createdAt: new Date(),
+    const promptParts = [
+      selectedAge ? `나이: ${selectedAge}` : '',
+      selectedGender ? `성별: ${selectedGender}` : '',
+      selectedInterest ? `관심사: ${selectedInterest}` : '',
+      selectedPersonality ? `성격: ${selectedPersonality}` : '',
+    ].filter(Boolean);
+
+    const prompt = promptParts.join(', ');
+    if (!prompt.trim()) return;
+
+    const initialMessages = [
+      { id: 'system', role: 'system', content: prompt },
+      { id: 'assistant-1', role: 'assistant', content: '한국어만 사용해' },
+      { id: 'assistant-2', role: 'assistant', content: '절대로 부정적인 말을 하지마' },
+      { id: 'assistant-3', role: 'assistant', content: '사실에 기반해서 답해' },
+      { id: 'assistant-4', role: 'assistant', content: '문장 짧고 간결하게 말해' },
+    ];
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const photoUrl = event.target.result;
+      onAdd(name, initialMessages, photoUrl);
+      setName('');
+      setPhotoFile(null);
+      setSelectedAge('');
+      setSelectedGender('');
+      setSelectedInterest('');
+      setSelectedPersonality('');
+      onClose();
     };
-
-    try {
-      setIsLoading(true);
-
-      await addDoc(collection(db, `chats/${activeCharacter.name}/messages`), userMessage);
-      setNewMessage('');
-
-      const prompts = [
-        ...activeCharacter.initialMessages.map(msg => ({ role: 'system', content: msg.content })),
-        ...messages.map((msg) => ({ role: msg.sender === "user" ? 'user' : 'assistant', content: msg.text })),
-        { role: 'user', content: newMessage },
-      ];
-
-      const validPrompts = prompts.filter(msg => msg.content && msg.content.trim());
-
-      const completion = await openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: validPrompts,
-      });
-
-      const aiMessage = {
-        text: completion.choices[0].message.content,
-        sender: "bot",
-        createdAt: new Date(),
-      };
-
-      await addDoc(collection(db, `chats/${activeCharacter.name}/messages`), aiMessage);
-    } catch (error) {
-      console.error('Error:', error);
-    } finally {
-      setIsLoading(false);
-    }
+    reader.readAsDataURL(photoFile);
   };
+
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    setPhotoFile(file);
+  };
+
+  if (!show) return null;
 
   return (
-    <div className={styles.chat_window}>
-      <div className={styles.messages}>
-        {messages
-          .filter(message => message.text && message.text.trim())
-          .map((message) => (
-            <div
-              key={message.id}
-              className={`${styles.message} ${message.sender === "user" ? styles.sent : ""}`}
-            >
-              {message.text}
-            </div>
-        ))}
-        {isLoading && (
-          <ProgressBar animated now={100} label="로딩 중..." />
-        )}
-        <div ref={messagesEndRef} />
+    <div className={styles.modal}>
+      <div className={styles.modal_content}>
+        <span className={styles.close} onClick={onClose}>&times;</span>
+        <h2>새 캐릭터 추가</h2>
+        <form onSubmit={handleSubmit}>
+          <input
+            type="text"
+            placeholder="캐릭터 이름"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className={styles.input}
+          />
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleFileChange}
+            className={styles.input}
+          />
+          <select value={selectedAge} onChange={(e) => setSelectedAge(e.target.value)} className={styles.input}>
+            <option value="">나이 선택</option>
+            {ages.map((age, index) => (
+              <option key={index} value={age}>{age}</option>
+            ))}
+          </select>
+          <select value={selectedGender} onChange={(e) => setSelectedGender(e.target.value)} className={styles.input}>
+            <option value="">성별 선택</option>
+            {genders.map((gender, index) => (
+              <option key={index} value={gender}>{gender}</option>
+            ))}
+          </select>
+          <select value={selectedInterest} onChange={(e) => setSelectedInterest(e.target.value)} className={styles.input}>
+            <option value="">관심사 선택</option>
+            {interests.map((interest, index) => (
+              <option key={index} value={interest}>{interest}</option>
+            ))}
+          </select>
+          <select value={selectedPersonality} onChange={(e) => setSelectedPersonality(e.target.value)} className={styles.input}>
+            <option value="">성격 선택</option>
+            {personalities.map((personality, index) => (
+              <option key={index} value={personality}>{personality}</option>
+            ))}
+          </select>
+          <button type="submit" className={styles.button}>추가</button>
+        </form>
       </div>
-      <form className={styles.input_container} onSubmit={handleSubmit}>
-        <input
-          type="text"
-          className={styles.input}
-          placeholder="메시지를 입력하세요..."
-          value={newMessage}
-          onChange={handleChange}
-          disabled={isLoading}
-        />
-        <button type="submit" className={styles.send_button} disabled={isLoading}>
-          전송
-        </button>
-      </form>
     </div>
   );
 }
 
-export default Chat;
+export default Create;
